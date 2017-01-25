@@ -9,16 +9,16 @@ A report of the performance of MWPM decoding is given.
 The created file contains the following arrays:
 (Zstab_x_train, Zstab_y_train, Xstab_x_train, Xstab_y_train,
  Zstab_x_test,  Zstab_y_test,  Xstab_x_test,  Xstab_y_test)''')
-parser.add_argument('ntrain', type=int,
-                    help='how many datapoints to generate in the training set')
-parser.add_argument('nval', type=int,
-                    help='how many datapoints to generate in the validation set')
-parser.add_argument('prob', type=float,
-                    help='the single physical qubit X/Z error probability')
 parser.add_argument('dist', type=int,
                     help='the distance of the code')
 parser.add_argument('out', type=str,
                     help='the name of the output file')
+parser.add_argument('--ntrain', type=int, default=2000000,
+                    help='how many datapoints to generate in the training set (default: %(default)s)')
+parser.add_argument('--nval', type=int, default=100000,
+                    help='how many datapoints to generate in the validation set (default: %(default)s)')
+parser.add_argument('--prob', type=float, default=0.9,
+                    help='the single physical qubit X/Z error probability (default: %(default)s)')
 
 args = parser.parse_args()
 
