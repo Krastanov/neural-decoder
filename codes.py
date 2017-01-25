@@ -40,24 +40,46 @@ class ToricCode:
         self.Zflips = np.zeros((2*L,L), dtype=np.dtype('b')) # qubits where a  Z error occured
         self._Xstab = np.empty((L,L), dtype=np.dtype('b'))
         self._Zstab = np.empty((L,L), dtype=np.dtype('b'))
-        self.flatXflips2Zstab = np.zeros((L**2, 2*L**2), dtype=np.dtype('b'))
-        self.flatZflips2Xstab = np.zeros((L**2, 2*L**2), dtype=np.dtype('b'))
+    
+    @property
+    def flatXflips2Zstab(self):
+        L = self.L
+        _flatXflips2Zstab = np.zeros((L**2, 2*L**2), dtype=np.dtype('b'))
         for i, j in itertools.product(range(L),range(L)):
-            self.flatXflips2Zstab[i*L+j, (2*i  )%(2*L)*L+(j  )%L] = 1
-            self.flatXflips2Zstab[i*L+j, (2*i+1)%(2*L)*L+(j  )%L] = 1
-            self.flatXflips2Zstab[i*L+j, (2*i+2)%(2*L)*L+(j  )%L] = 1
-            self.flatXflips2Zstab[i*L+j, (2*i+1)%(2*L)*L+(j+1)%L] = 1
-            self.flatZflips2Xstab[(i+1)%L*L+(j+1)%L, (2*i+1)%(2*L)*L+(j+1)%L] = 1
-            self.flatZflips2Xstab[(i+1)%L*L+(j+1)%L, (2*i+2)%(2*L)*L+(j  )%L] = 1
-            self.flatZflips2Xstab[(i+1)%L*L+(j+1)%L, (2*i+3)%(2*L)*L+(j+1)%L] = 1
-            self.flatZflips2Xstab[(i+1)%L*L+(j+1)%L, (2*i+2)%(2*L)*L+(j+1)%L] = 1
-        self.flatXflips2Zerr = np.zeros((2, 2*L**2), dtype=np.dtype('b'))
-        self.flatZflips2Xerr = np.zeros((2, 2*L**2), dtype=np.dtype('b'))
+            _flatXflips2Zstab[i*L+j, (2*i  )%(2*L)*L+(j  )%L] = 1
+            _flatXflips2Zstab[i*L+j, (2*i+1)%(2*L)*L+(j  )%L] = 1
+            _flatXflips2Zstab[i*L+j, (2*i+2)%(2*L)*L+(j  )%L] = 1
+            _flatXflips2Zstab[i*L+j, (2*i+1)%(2*L)*L+(j+1)%L] = 1
+        return _flatXflips2Zstab
+    
+    @property
+    def flatZflips2Xstab(self):
+        L = self.L
+        _flatZflips2Xstab = np.zeros((L**2, 2*L**2), dtype=np.dtype('b'))
+        for i, j in itertools.product(range(L),range(L)):
+            _flatZflips2Xstab[(i+1)%L*L+(j+1)%L, (2*i+1)%(2*L)*L+(j+1)%L] = 1
+            _flatZflips2Xstab[(i+1)%L*L+(j+1)%L, (2*i+2)%(2*L)*L+(j  )%L] = 1
+            _flatZflips2Xstab[(i+1)%L*L+(j+1)%L, (2*i+3)%(2*L)*L+(j+1)%L] = 1
+            _flatZflips2Xstab[(i+1)%L*L+(j+1)%L, (2*i+2)%(2*L)*L+(j+1)%L] = 1
+        return _flatZflips2Xstab
+
+    @property
+    def flatXflips2Zerr(self):
+        L = self.L
+        _flatXflips2Zerr = np.zeros((2, 2*L**2), dtype=np.dtype('b'))
         for k in range(L):
-            self.flatXflips2Zerr[0, (2*k+1)%(2*L)*L+(0  )%L] = 1
-            self.flatXflips2Zerr[1, (2*0  )%(2*L)*L+(k  )%L] = 1
-            self.flatZflips2Xerr[0, (2*0+1)%(2*L)*L+(k  )%L] = 1
-            self.flatZflips2Xerr[1, (2*k  )%(2*L)*L+(0  )%L] = 1
+            _flatXflips2Zerr[0, (2*k+1)%(2*L)*L+(0  )%L] = 1
+            _flatXflips2Zerr[1, (2*0  )%(2*L)*L+(k  )%L] = 1
+        return _flatXflips2Zerr
+            
+    @property
+    def flatZflips2Xerr(self):
+        L = self.L
+        _flatZflips2Xerr = np.zeros((2, 2*L**2), dtype=np.dtype('b'))
+        for k in range(L):
+            _flatZflips2Xerr[0, (2*0+1)%(2*L)*L+(k  )%L] = 1
+            _flatZflips2Xerr[1, (2*k  )%(2*L)*L+(0  )%L] = 1
+        return _flatZflips2Xerr
         
     def Zstabilizer(self):
         '''Return all measurements of the Z stabilizer with ``true`` marking non-trivial.'''
@@ -295,7 +317,7 @@ def sample(L, p, samples=1000, cutoff=200):
     
     Return an array of nb of cycles until failure for a given L and p.'''
     results = []
-    for _ in tnrange(samples, desc='%d; %.2f'%(L,p), leave=False):
+    for _ in trange(samples, desc='%d; %.2f'%(L,p), leave=False):
         code = ToricCode(L)
         i = 1
         while code.step_error_and_perfect_correction(p) and i<cutoff:
