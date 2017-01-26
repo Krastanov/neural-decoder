@@ -31,7 +31,7 @@ f = np.load(args.trainset)
 (Zstab_x_train, Zstab_y_train, Xstab_x_train, Xstab_y_train,
  Zstab_x_test,  Zstab_y_test,  Xstab_x_test,  Xstab_y_test) = [f['arr_%d'%_] for _ in range(8)]
 
-model = create_model(L=3,
+model = create_model(L=args.dist,
                      hidden_sizes=args.layers,
                      hidden_act=args.hact,
                      act=args.act)
