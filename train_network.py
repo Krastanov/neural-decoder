@@ -35,8 +35,8 @@ import tqdm
 
 
 f = np.load(args.trainset)
-(Zstab_x_train, Zstab_y_train, Xstab_x_train, Xstab_y_train,
- Zstab_x_test,  Zstab_y_test,  Xstab_x_test,  Xstab_y_test) = [f['arr_%d'%_] for _ in range(8)]
+Zstab_x_test = f['arr_4']
+Zstab_y_test = f['arr_5']
 
 model = create_model(L=args.dist,
                      hidden_sizes=args.layers,
@@ -45,6 +45,8 @@ model = create_model(L=args.dist,
 if args.load:
     model.load_weights(args.load)
 if args.epochs:
+    Zstab_x_train = f['arr_0']
+    Zstab_y_train = f['arr_1']
     hist = model.fit(Zstab_x_train, Zstab_y_train,
                      nb_epoch=args.epochs,
                      batch_size=args.batch,
