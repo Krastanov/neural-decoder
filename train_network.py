@@ -58,8 +58,8 @@ if args.eval:
     H = ToricCode(L).flatXflips2Zstab
     E = ToricCode(L).flatXflips2Zerr
     c = 0.
-    size = 5000
-    for flips, stab in tqdm.tqdm(zip(Zstab_y_test, Zstab_x_test)):
+    size = len(Zstab_y_test)
+    for flips, stab in zip(tqdm.tqdm(Zstab_y_test), Zstab_x_test):
         pred = model.predict(np.array([stab])).ravel() # TODO those seem like unnecessary shape changes
         sample = pred>np.random.uniform(size=2*L**2)
         while np.any(stab!=H.dot(sample)%2):
