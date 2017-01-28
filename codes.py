@@ -28,9 +28,9 @@ except ImportError:
 
 class ToricCode:
     '''
-    
+
     ::
-    
+
         Lattice:
         X00--Q00--X01--Q01--X02...
          |         |         |
@@ -46,7 +46,7 @@ class ToricCode:
         self.Zflips = np.zeros((2*L,L), dtype=np.dtype('b')) # qubits where a  Z error occured
         self._Xstab = np.empty((L,L), dtype=np.dtype('b'))
         self._Zstab = np.empty((L,L), dtype=np.dtype('b'))
-    
+
     @property
     def flatXflips2Zstab(self):
         L = self.L
@@ -57,7 +57,7 @@ class ToricCode:
             _flatXflips2Zstab[i*L+j, (2*i+2)%(2*L)*L+(j  )%L] = 1
             _flatXflips2Zstab[i*L+j, (2*i+1)%(2*L)*L+(j+1)%L] = 1
         return _flatXflips2Zstab
-    
+
     @property
     def flatZflips2Xstab(self):
         L = self.L
@@ -77,7 +77,7 @@ class ToricCode:
             _flatXflips2Zerr[0, (2*k+1)%(2*L)*L+(0  )%L] = 1
             _flatXflips2Zerr[1, (2*0  )%(2*L)*L+(k  )%L] = 1
         return _flatXflips2Zerr
-            
+
     @property
     def flatZflips2Xerr(self):
         L = self.L
@@ -86,7 +86,7 @@ class ToricCode:
             _flatZflips2Xerr[0, (2*0+1)%(2*L)*L+(k  )%L] = 1
             _flatZflips2Xerr[1, (2*k  )%(2*L)*L+(0  )%L] = 1
         return _flatZflips2Xerr
-        
+
     def Zstabilizer(self):
         '''Return all measurements of the Z stabilizer with ``true`` marking non-trivial.'''
         stab = self._Zstab
@@ -96,7 +96,7 @@ class ToricCode:
         stab[0:-1,  -1] = X[0:-2:2,  -1 ] ^ X[1:-1:2,  -1 ] ^ X[2::2,  -1 ] ^ X[1:-1:2,  0]
         stab[  -1,  -1] = X[  -2  ,  -1 ] ^ X[  -1  ,  -1 ] ^ X[  0 ,  -1 ] ^ X[  -1  ,  0]
         return stab
-    
+
     def Xstabilizer(self):
         '''Return all measurements of the X stabilizer with ``true`` marking non-trivial.'''
         stab = self._Xstab
@@ -106,7 +106,7 @@ class ToricCode:
         stab[1:,0 ] = Z[1:-2:2,0 ] ^ Z[2:-1:2,  -1] ^ Z[3::2,0 ] ^ Z[2:-1:2,0 ]
         stab[0 ,0 ] = Z[  -1  ,0 ] ^ Z[   0  ,  -1] ^ Z[  1 ,0 ] ^ Z[   0  ,0 ]
         return stab
-    
+
     def _plot_flips(self, s, flips_yx, label):
         '''Given an array of yx coordiante plot qubit flips on subplot ``s``.'''
         if not len(flips_yx): return
@@ -116,22 +116,22 @@ class ToricCode:
         x = np.concatenate([x, x-self.L, x])
         y = np.concatenate([y/2., y/2., y/2.-self.L])
         s.plot(x, y,'o', ms=50/self.L, label=label)
-    
+
     def plot(self, legend=True):
         '''Plot the state of the system (including stabilizers).'''
         f = plt.figure(figsize=(5,5))
         s = f.add_subplot(1,1,1)
         self._plot_legend = legend
-        
+
         self._plot_flips(s, self.Xflips.nonzero(), label='X')
         self._plot_flips(s, self.Zflips.nonzero(), label='Z')
         self._plot_flips(s, (self.Xflips & self.Zflips).nonzero(), label='Y')
-        
+
         y, x = self.Zstabilizer().nonzero()
         x = np.concatenate([x+0.5, x+0.5-self.L, x+0.5, x+0.5-self.L])
         y = np.concatenate([y+0.5, y+0.5, y+0.5-self.L, y+0.5-self.L])
         s.plot(x,y,'s', mew=0, ms=190/self.L, label='plaq')
-        
+
         y, x = self.Xstabilizer().nonzero()
         s.plot(x, y, '+', mew=100/self.L, ms=200/self.L, label='star')
 
@@ -149,7 +149,7 @@ class ToricCode:
         s.grid()
         if legend: s.legend()
         return f, s
-    
+
     def _wgraph(self, operator):
         g = nx.Graph()
         if operator == 'Z':
@@ -165,7 +165,7 @@ class ToricCode:
         g.add_weighted_edges_from((node1, node2, -dist(node1, node2))
             for node1, node2 in itertools.combinations(nodes, 2))
         return g
-    
+
     def Zwgraph(self):
         '''The distance graph for non-trivial Z stabilizer.'''
         return self._wgraph('Z')
@@ -173,7 +173,7 @@ class ToricCode:
     def Xwgraph(self):
         '''The distance graph for non-trivial X stabilizer.'''
         return self._wgraph('X')
-    
+
     def Zcorrections(self):
         '''Qubits on which to apply Z operator to fix the X stabilizer.'''
         L = self.L
@@ -197,7 +197,7 @@ class ToricCode:
             qubits.update((horizontal%(2*L), _%L) for _ in range(xm, xM))
             qubits.update(((_+1)%(2*L), vertical%L) for _ in range(ym, yM, 2))
         return matches, qubits
-    
+
     def Xcorrections(self):
         '''Qubits on which to apply X operator to fix the Z stabilizer.'''
         L = self.L
@@ -221,7 +221,7 @@ class ToricCode:
             qubits.update(((horizontal+1)%(2*L), (_+1)%L) for _ in range(xm, xM))
             qubits.update(((_+2)%(2*L), vertical%L) for _ in range(ym, yM, 2))
         return matches, qubits
-    
+
     def plot_corrections(self, s, plot_matches=False):
         '''Add to subplot ``s`` the corrections that have to be performed according to min. weight matching.'''
         def stitch_torus(y1, y2):
@@ -231,7 +231,7 @@ class ToricCode:
         def shorten(y1,y2):
             if y1==y2:
                 return y1, y2
-            return (y1+0.15, y2-0.15) if y1<y2 else (y1-0.15, y2+0.15) 
+            return (y1+0.15, y2-0.15) if y1<y2 else (y1-0.15, y2+0.15)
         S = shorten
         matches, qubits = self.Xcorrections()
         L = self.L
@@ -239,7 +239,7 @@ class ToricCode:
             if plot_matches:
                 for ((y1,x1),(y2,x2)) in np.array(list(matches))+0.5:
                     Y1, Y2 = stitch_torus(y1,y2)
-                    X1, X2 = stitch_torus(x1,x2)                 
+                    X1, X2 = stitch_torus(x1,x2)
                     s.plot(S(x1,X2), S(y1,Y2), 'k-', lw=20/self.L)
                     s.plot(S(X1,x2), S(Y1,y2), 'k-', lw=20/self.L)
             y, x = np.array(list(qubits)).T
@@ -253,7 +253,7 @@ class ToricCode:
                 matches = np.array(list(matches))
                 for ((y1,x1),(y2,x2)) in matches:
                     Y1, Y2 = stitch_torus(y1,y2)
-                    X1, X2 = stitch_torus(x1,x2)                 
+                    X1, X2 = stitch_torus(x1,x2)
                     s.plot(S(x1,X2), S(y1,Y2), 'k-', lw=20/self.L)
                     s.plot(S(X1,x2), S(Y1,y2), 'k-', lw=20/self.L)
             y, x = np.array(list(qubits)).T
@@ -265,7 +265,7 @@ class ToricCode:
         cY = np.array(list(set(zip(*cZ)).intersection(set(zip(*cX))))).T
         self._plot_flips(s, cY, label='cY')
         if self._plot_legend: s.legend()
-        
+
     def add_errors(self, p): #TODO probably faster with numba
         '''Add X, Y, Z errors at rate ``(1-p)/3`` each, e.g. depolarization at ``1-p``.'''
         rand = np.random.rand(self.L*2, self.L)
@@ -277,23 +277,23 @@ class ToricCode:
         self.Xflips ^= both
         self.Zflips ^= z_flips
         self.Zflips ^= both
-    
+
     def perform_perfect_correction(self):
         self.Xflips[list(zip(*self.Xcorrections()[1]))] ^= True
         self.Zflips[list(zip(*self.Zcorrections()[1]))] ^= True
-        
+
     def logical_errors(self):
         z1 = np.logical_xor.reduce(self.Xflips[1::2,0])
         z2 = np.logical_xor.reduce(self.Xflips[0,:])
         x1 = np.logical_xor.reduce(self.Zflips[1,:])
         x2 = np.logical_xor.reduce(self.Zflips[0::2,0])
         return z1, z2, x1, x2
-    
+
     def step_error_and_perfect_correction(self, p):
         self.add_errors(p)
         self.perform_perfect_correction()
         return not any(self.logical_errors())
-    
+
     @staticmethod
     def assert_correctness():
         '''A bunch of functionality is implemented in multiple ways - here we assert they are equivalent.'''
@@ -317,11 +317,11 @@ class ToricCode:
             c += 1
             if not c%100:
                 print('\r',c,end='',flush=True)
-                
+
 
 def sample(L, p, samples=1000, cutoff=200):
     '''Repeated single shot corrections for the toric code with perfect measurements.
-    
+
     Return an array of nb of cycles until failure for a given L and p.'''
     results = []
     for _ in trange(samples, desc='%d; %.2f'%(L,p), leave=False):
@@ -330,13 +330,14 @@ def sample(L, p, samples=1000, cutoff=200):
         while code.step_error_and_perfect_correction(p) and i<cutoff:
             i+=1
         results.append(i)
-    return np.array(results)
+    return np.array(results, dtype=int)
 
 def stat_estimator(samples, cutoff=200, confidence=0.99):
     '''Max Likelihood Estimator for censored exponential distribution.
-    
+
     See "Estimation of Parameters of Truncated or Censored Exponential Distributions",
     Walter L. Deemer and David F. Votaw'''
+    samples = samples.astype(float)
     n = (samples<cutoff).sum()
     N = len(samples)
     estimate = n/samples.sum()
@@ -371,7 +372,12 @@ def find_threshold(Lsmall=3, Llarge=5, p=0.8, high=1, low=0.79, samples=1000, lo
             y = np.exp(y)
         return x, y
     step(p)
-    if not logfile:
+    if logfile:
+        with open(logfile, 'w') as f:
+            ss = samples_small[0]
+            sl = samples_large[0]
+            f.write(str((np.vstack([ps, [ss[0]], [ss[1]-ss[0]], [ss[2]-ss[0]], [sl[0]], [sl[1]-sl[0]], [sl[2]-sl[0]]]), (ss[0]+sl[0])/2, ps[0])))
+    else:
         f = plt.figure()
         s = f.add_subplot(1,1,1)
     while not (samples_large[-1][1]<samples_small[-1][0]<samples_large[-1][2]
@@ -383,10 +389,12 @@ def find_threshold(Lsmall=3, Llarge=5, p=0.8, high=1, low=0.79, samples=1000, lo
         step(p)
         _argsort = np.argsort(ps)
         _ps = np.array(ps)[_argsort]
-        _small = np.array(samples_small)[_argsort,0]
-        _small_err = np.abs(np.array(samples_small)[_argsort,1:].T - _small)
-        _large = np.array(samples_large)[_argsort,0]
-        _large_err = np.abs(np.array(samples_large)[_argsort,1:].T - _large)
+        _ss = np.array(samples_small)
+        _small = _ss[_argsort,0]
+        _small_err = np.abs(_ss[_argsort,1:].T - _small)
+        _sl = np.array(samples_large)
+        _large = _sl[_argsort,0]
+        _large_err = np.abs(_sl[_argsort,1:].T - _large)
         ix, iy = intersection(ps[-2:],[_[0] for _ in samples_small[-2:]],[_[0] for _ in samples_large[-2:]])
         if logfile:
             with open(logfile, 'w') as f:
@@ -400,15 +408,15 @@ def find_threshold(Lsmall=3, Llarge=5, p=0.8, high=1, low=0.79, samples=1000, lo
             s.set_yscale('log')
             display.clear_output(wait=True)
             display.display(f)
-    
+
     return ps, samples_small, samples_large
 
 def generate_training_data(l=3, p=0.9, train_size=2000000, test_size=100000):
     '''Generate errors and corresponding stabilizers at a given `p` for the toric code.
-    
-    The samples with no errors are skipped. 
+
+    The samples with no errors are skipped.
     It counts and prints out how many of the errors are fixed by MWPM.
-    
+
     returns: (Zstab_x_train, Zstab_y_train, Xstab_x_train, Xstab_y_train,
               Zstab_x_test,  Zstab_y_test,  Xstab_x_test,  Xstab_y_test)'''
     Zstab_x_train = np.zeros((train_size, l**2))
