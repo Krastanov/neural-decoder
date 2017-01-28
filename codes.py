@@ -11,13 +11,19 @@ import numpy as np
 import scipy.stats as stats
 import scipy.optimize as optimize
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    pass
 
 import networkx as nx
 
 from tqdm import tqdm, trange
 
-from IPython import display
+try:
+    from IPython import display
+except ImportError:
+    pass
 
 
 class ToricCode:
@@ -103,6 +109,7 @@ class ToricCode:
     
     def _plot_flips(self, s, flips_yx, label):
         '''Given an array of yx coordiante plot qubit flips on subplot ``s``.'''
+        if not len(flips_yx): return
         y, x = flips_yx
         x = x.astype(float)
         x[y%2==0] += 0.5
@@ -110,10 +117,11 @@ class ToricCode:
         y = np.concatenate([y/2., y/2., y/2.-self.L])
         s.plot(x, y,'o', ms=50/self.L, label=label)
     
-    def plot(self):
+    def plot(self, legend=True):
         '''Plot the state of the system (including stabilizers).'''
         f = plt.figure(figsize=(5,5))
         s = f.add_subplot(1,1,1)
+        self._plot_legend = legend
         
         self._plot_flips(s, self.Xflips.nonzero(), label='X')
         self._plot_flips(s, self.Zflips.nonzero(), label='Z')
@@ -139,7 +147,7 @@ class ToricCode:
             tic.tick1On = tic.tick2On = False
             tic.label1On = tic.label2On = False
         s.grid()
-        s.legend()
+        if legend: s.legend()
         return f, s
     
     def _wgraph(self, operator):
@@ -256,8 +264,7 @@ class ToricCode:
         self._plot_flips(s, cZ, label='cZ')
         cY = np.array(list(set(zip(*cZ)).intersection(set(zip(*cX))))).T
         self._plot_flips(s, cY, label='cY')
-            
-        s.legend()
+        if self._plot_legend: s.legend()
         
     def add_errors(self, p): #TODO probably faster with numba
         '''Add X, Y, Z errors at rate ``(1-p)/3`` each, e.g. depolarization at ``1-p``.'''
@@ -341,7 +348,7 @@ def stat_estimator(samples, cutoff=200, confidence=0.99):
         raise RuntimeError('Could not find confidence interval for the given samples!')
     return np.array([1/estimate, 1/high.x, 1/low.x])
 
-def find_threshold(Lsmall=3, Llarge=5, p=0.8, high=1, low=0.79, samples=1000):
+def find_threshold(Lsmall=3, Llarge=5, p=0.8, high=1, low=0.79, samples=1000, logfile=None):
     '''Use binary search (between two sizes of codes) to find the threshold for the toric code.'''
     ps = []
     samples_small = []
@@ -364,8 +371,9 @@ def find_threshold(Lsmall=3, Llarge=5, p=0.8, high=1, low=0.79, samples=1000):
             y = np.exp(y)
         return x, y
     step(p)
-    f = plt.figure()
-    s = f.add_subplot(1,1,1)
+    if not logfile:
+        f = plt.figure()
+        s = f.add_subplot(1,1,1)
     while not (samples_large[-1][1]<samples_small[-1][0]<samples_large[-1][2]
             or samples_small[-1][1]<samples_large[-1][0]<samples_small[-1][2]):
         if samples_small[-1][0]<samples_large[-1][0]:
@@ -379,15 +387,19 @@ def find_threshold(Lsmall=3, Llarge=5, p=0.8, high=1, low=0.79, samples=1000):
         _small_err = np.abs(np.array(samples_small)[_argsort,1:].T - _small)
         _large = np.array(samples_large)[_argsort,0]
         _large_err = np.abs(np.array(samples_large)[_argsort,1:].T - _large)
-        s.clear()
-        s.errorbar(_ps,_small,yerr=_small_err,alpha=0.6,label=str(Lsmall))
-        s.errorbar(_ps,_large,yerr=_large_err,alpha=0.6,label=str(Llarge))
         ix, iy = intersection(ps[-2:],[_[0] for _ in samples_small[-2:]],[_[0] for _ in samples_large[-2:]])
-        s.plot([ix],[iy],'ro',alpha=0.5)
-        s.set_title('intersection at p = %f'%ix)
-        s.set_yscale('log')
-        display.clear_output(wait=True)
-        display.display(f)
+        if logfile:
+            with open(logfile, 'w') as f:
+                f.write(str((np.vstack([_ps, _small, _small_err, _large, _large_err]), iy, ix)))
+        else:
+            s.clear()
+            s.errorbar(_ps,_small,yerr=_small_err,alpha=0.6,label=str(Lsmall))
+            s.errorbar(_ps,_large,yerr=_large_err,alpha=0.6,label=str(Llarge))
+            s.plot([ix],[iy],'ro',alpha=0.5)
+            s.set_title('intersection at p = %f'%ix)
+            s.set_yscale('log')
+            display.clear_output(wait=True)
+            display.display(f)
     
     return ps, samples_small, samples_large
 
