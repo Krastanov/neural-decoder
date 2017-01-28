@@ -1,5 +1,7 @@
-# Data files
+# Data files and notes
 *.npz
+Notes.ipynb
+Scratch Pad.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
