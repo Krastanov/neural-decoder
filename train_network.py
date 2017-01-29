@@ -22,6 +22,8 @@ parser.add_argument('--hact', type=str, default='tanh',
                     help='the activation for hidden layers (default: %(default)s)')
 parser.add_argument('--act', type=str, default='sigmoid',
                     help='the activation for the output layer (default: %(default)s)')
+parser.add_argument('--loss', type=str, default='binary_crossentropy',
+                    help='the loss to be optimized (default: %(default)s)')
 parser.add_argument('--layers', type=float, default=[4], nargs='+',
                     help='the list of sizes of the hidden layers (as a factor of the input layer) (default: %(default)s)')
 
@@ -41,7 +43,8 @@ Zstab_y_test = f['arr_5']
 model = create_model(L=args.dist,
                      hidden_sizes=args.layers,
                      hidden_act=args.hact,
-                     act=args.act)
+                     act=args.act,
+                     loss=args.loss)
 if args.load:
     model.load_weights(args.load)
 if args.epochs:
