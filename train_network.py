@@ -30,6 +30,7 @@ parser.add_argument('--layers', type=float, default=[4], nargs='+',
 args = parser.parse_args()
 print(args)
 
+from collections import Counter
 from neural import create_model
 from codes import ToricCode
 import numpy as np
@@ -63,12 +64,16 @@ if args.eval:
     H = ToricCode(L).flatXflips2Zstab
     E = ToricCode(L).flatXflips2Zerr
     c = 0.
+    attempt_counter = Counter()
     size = len(Zstab_y_test)
     for flips, stab in zip(tqdm.tqdm(Zstab_y_test), Zstab_x_test):
         pred = model.predict(np.array([stab])).ravel() # TODO those seem like unnecessary shape changes
         sample = pred>np.random.uniform(size=2*L**2)
-        while np.any(stab!=H.dot(sample)%2):
+        attempts = 1
+        while np.any(stab!=H.dot(sample)%2) and attempts < 10000:
             sample = pred>np.random.uniform(size=2*L**2)
-        c += np.any(E.dot((sample+flips)%2)%2)
+            attempts += 1
+        c += np.any(E.dot((sample+flips)%2)%2) or np.any(stab!=H.dot(sample)%2)
+        attempt_counter[attempts] += 1
     with open(args.out+'.eval', 'w') as f:
-        f.write('%.10f'%(1-c/size))
+        f.write(str(((1-c/size),attempt_counter)))
