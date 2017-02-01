@@ -14,6 +14,8 @@ parser.add_argument('--load', type=str, default='',
                     help='the file from which to load a pretrained model weights (optional, requires correct hyperparameters)')
 parser.add_argument('--eval', action='store_true',
                     help='if present, calculate the fraction of successful corrections based on sampling the NN')
+parser.add_argument('--giveup', type=int, default=1000000,
+                    help='after how many samples to give up decoding a given test error vector (considered only if --eval is present) (default: %(default)s)')
 parser.add_argument('--batch', type=int, default=32,
                     help='the batch size (default: %(default)s)')
 parser.add_argument('--epochs', type=int, default=3,
@@ -67,11 +69,13 @@ if args.eval:
     failed_counter = Counter()
     succeeded_counter = Counter()
     size = len(Zstab_y_test)
-    for flips, stab in zip(tqdm.tqdm(Zstab_y_test), Zstab_x_test):
+    l_test = len(Zstab_y_test)
+    giveup = args.giveup
+    for flips, stab in zip(tqdm.tqdm(Zstab_y_test, desc='bad %.4f'%(failed_counter[giveup]/l_test)), Zstab_x_test):
         pred = model.predict(np.array([stab])).ravel() # TODO those seem like unnecessary shape changes
         sample = pred>np.random.uniform(size=2*L**2)
         attempts = 1
-        while np.any(stab!=H.dot(sample)%2) and attempts < 10000:
+        while np.any(stab!=H.dot(sample)%2) and attempts < giveup:
             sample = pred>np.random.uniform(size=2*L**2)
             attempts += 1
         if np.any(E.dot((sample+flips)%2)%2) or np.any(stab!=H.dot(sample)%2):
