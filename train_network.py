@@ -16,9 +16,9 @@ parser.add_argument('--eval', action='store_true',
                     help='if present, calculate the fraction of successful corrections based on sampling the NN')
 parser.add_argument('--giveup', type=int, default=1000000,
                     help='after how many samples to give up decoding a given test error vector (considered only if --eval is present) (default: %(default)s)')
-parser.add_argument('--batch', type=int, default=32,
+parser.add_argument('--batch', type=int, default=512,
                     help='the batch size (default: %(default)s)')
-parser.add_argument('--epochs', type=int, default=3,
+parser.add_argument('--epochs', type=int, default=20,
                     help='the number of epochs (default: %(default)s)')
 parser.add_argument('--hact', type=str, default='tanh',
                     help='the activation for hidden layers (default: %(default)s)')
@@ -27,7 +27,11 @@ parser.add_argument('--act', type=str, default='sigmoid',
 parser.add_argument('--loss', type=str, default='binary_crossentropy',
                     help='the loss to be optimized (default: %(default)s)')
 parser.add_argument('--layers', type=float, default=[4], nargs='+',
-                    help='the list of sizes of the hidden layers (as a factor of the input layer) (default: %(default)s)')
+                    help='the list of sizes of the hidden layers (as a factor of the output layer) (default: %(default)s)')
+parser.add_argument('--Zstab', action='store_true',
+                    help='if present, include the Z stabilizer in the neural network')
+parser.add_argument('--Xstab', action='store_true',
+                    help='if present, include the X stabilizer in the neural network')
 
 args = parser.parse_args()
 print(args)
@@ -40,48 +44,78 @@ import tqdm
 
 
 f = np.load(args.trainset)
-Zstab_x_test = f['arr_4']
-Zstab_y_test = f['arr_5']
+x_test = []
+y_test = []
+if args.Zstab:
+    x_test.append(f['arr_4'])
+    y_test.append(f['arr_5'])
+if args.Xstab:
+    x_test.append(f['arr_6'])
+    y_test.append(f['arr_7'])
+x_test = np.hstack(x_test)
+y_test = np.hstack(y_test)
 
 model = create_model(L=args.dist,
                      hidden_sizes=args.layers,
                      hidden_act=args.hact,
                      act=args.act,
-                     loss=args.loss)
+                     loss=args.loss,
+                     Z=args.Zstab, X=args.Xstab)
 if args.load:
     model.load_weights(args.load)
 if args.epochs:
-    Zstab_x_train = f['arr_0']
-    Zstab_y_train = f['arr_1']
-    hist = model.fit(Zstab_x_train, Zstab_y_train,
+    x_train = []
+    y_train = []
+    if args.Zstab:
+        x_train.append(f['arr_0'])
+        y_train.append(f['arr_1'])
+    if args.Xstab:
+        x_train.append(f['arr_2'])
+        y_train.append(f['arr_3'])
+    x_train = np.hstack(x_train)
+    y_train = np.hstack(y_train)
+    hist = model.fit(x_train, y_train,
                      nb_epoch=args.epochs,
                      batch_size=args.batch,
-                     validation_data=(Zstab_x_test, Zstab_y_test)
+                     validation_data=(x_test, y_test)
                     )
     model.save_weights(args.out)
     with open(args.out+'.log', 'w') as f:
         f.write(str((hist.params, hist.history)))
 if args.eval:
     L = args.dist
-    H = ToricCode(L).flatXflips2Zstab
-    E = ToricCode(L).flatXflips2Zerr
-    c = 0.
+    H = []
+    E = []
+    if args.Zstab:
+        H.append(ToricCode(L).flatXflips2Zstab)
+        E.append(ToricCode(L).flatXflips2Zerr)
+    if args.Xstab:
+        H.append(ToricCode(L).flatZflips2Xstab)
+        E.append(ToricCode(L).flatZflips2Xerr)
+    H = np.hstack(H)
+    E = np.hstack(E)
+    both = args.Zstab and args.Xstab
+    c = cz = cx = 0
     failed_counter = Counter()
     succeeded_counter = Counter()
-    size = len(Zstab_y_test)
-    l_test = len(Zstab_y_test)
+    size = len(y_test)
     giveup = args.giveup
-    for flips, stab in zip(tqdm.tqdm(Zstab_y_test, desc='bad %.4f'%(failed_counter[giveup]/l_test)), Zstab_x_test):
+    for flips, stab in zip(tqdm.tqdm(y_test, desc='bad %.4f'%(failed_counter[giveup]/size)), x_test):
         pred = model.predict(np.array([stab])).ravel() # TODO those seem like unnecessary shape changes
         sample = pred>np.random.uniform(size=2*L**2)
         attempts = 1
         while np.any(stab!=H.dot(sample)%2) and attempts < giveup:
             sample = pred>np.random.uniform(size=2*L**2)
             attempts += 1
-        if np.any(E.dot((sample+flips)%2)%2) or np.any(stab!=H.dot(sample)%2):
+        errors = E.dot((sample+flips)%2)%2
+        if np.any(errors) or np.any(stab!=H.dot(sample)%2):
             c += 1
             failed_counter[attempts] += 1
+            if both:
+                cz += np.any(errors[:len(errors)/2])
+                cx += np.any(errors[len(errors)/2:])
         else:
             succeeded_counter[attempts] += 1
     with open(args.out+'.eval', 'w') as f:
-        f.write(str(((1-c/size),succeeded_counter,failed_counter)))
+        f.write(str(((1-c/size),(1-cz/size),(1-cx/size),
+                     succeeded_counter,failed_counter)))
