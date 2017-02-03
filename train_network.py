@@ -26,7 +26,7 @@ parser.add_argument('--act', type=str, default='sigmoid',
                     help='the activation for the output layer (default: %(default)s)')
 parser.add_argument('--loss', type=str, default='binary_crossentropy',
                     help='the loss to be optimized (default: %(default)s)')
-parser.add_argument('--layers', type=float, default=[4], nargs='+',
+parser.add_argument('--layers', type=float, default=[4, 4, 4], nargs='+',
                     help='the list of sizes of the hidden layers (as a factor of the output layer) (default: %(default)s)')
 parser.add_argument('--Zstab', action='store_true',
                     help='if present, include the Z stabilizer in the neural network')
