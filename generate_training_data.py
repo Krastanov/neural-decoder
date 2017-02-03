@@ -31,4 +31,4 @@ res = generate_training_data(l=args.dist,
                              test_size=args.nval,
                             )
 
-np.savez(args.out, *res)
+np.savez_compressed(args.out, *res)
