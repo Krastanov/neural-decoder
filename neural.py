@@ -15,17 +15,9 @@ F = lambda _: K.cast(_, 'float32') # TODO XXX there must be a better way to calc
 class CodeCosts:
     def __init__(self, L, code, Z, X):
         self.L = L
-        H = []
-        E = []
         code = code(L)
-        if Z:
-            H.append(code.flatXflips2Zstab)
-            E.append(code.flatXflips2Zerr)
-        if X:
-            H.append(code.flatZflips2Xstab)
-            E.append(code.flatZflips2Xerr)
-        H = np.hstack(H)
-        E = np.hstack(E)
+        H = code.H(Z,X)
+        E = code.E(Z,X)
         self.H = K.variable(value=H) # TODO should be sparse
         self.E = K.variable(value=E) # TODO should be sparse
     def exact_reversal(self, y_true, y_pred):
@@ -67,3 +59,27 @@ def create_model(L, hidden_sizes=[4], hidden_act='tanh', act='sigmoid', loss='bi
                   metrics=[c.exact_reversal, c.triv_stab, c.no_error, c.triv_no_error]
                  )
     return model
+
+def data_generator(code, L, p, batch_size=512, Z=True, X=False):
+    H = []
+    code = code(L)
+    in_dim = L**2 * (X+Z)
+    out_dim = 2*L**2 * (X+Z)
+    H = code.H(Z,X)
+    Ht = H.T
+    while True:
+        flips = np.zeros((batch_size, out_dim), dtype=np.dtype('b'))
+        rand = np.random.rand(batch_size, 2*L**2)
+        q = (1-p)/3
+        both_flips  = (2*q<=rand) & (rand<3*q)
+        if Z:
+            x_flips =                rand<  q
+            flips[:,:2*L**2] ^= x_flips
+            flips[:,:2*L**2] ^= both_flips
+        if X:
+            z_flips =   (q<=rand) & (rand<2*q)
+            off = 2*L**2 if Z else 0
+            flips[:,off:off+2*L**2] ^= z_flips
+            flips[:,off:off+2*L**2] ^= both_flips
+        stabs = flips.dot(Ht)
+        yield (stabs, flips)
