@@ -18,7 +18,7 @@ parser.add_argument('--ntrain', type=int, default=2000000,
 parser.add_argument('--nval', type=int, default=100000,
                     help='how many datapoints to generate in the validation set (default: %(default)s)')
 parser.add_argument('--prob', type=float, default=0.9,
-                    help='the single physical qubit X/Z error probability (default: %(default)s)')
+                    help='the probability of no error on the physical qubit (default: %(default)s)')
 
 args = parser.parse_args()
 
