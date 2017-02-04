@@ -46,12 +46,12 @@ def create_model(L, hidden_sizes=[4], hidden_act='tanh', act='sigmoid', loss='bi
     in_dim = L**2 * (X+Z)
     out_dim = 2*L**2 * (X+Z)
     model = Sequential()
-    model.add(Dense(int(hidden_sizes[0]*out_dim), input_dim=in_dim, init='normal'))
+    model.add(Dense(int(hidden_sizes[0]*out_dim), input_dim=in_dim, init='glorot_uniform'))
     model.add(Activation(hidden_act))
     for s in hidden_sizes[1:]:
-        model.add(Dense(int(s*out_dim), init='normal'))
+        model.add(Dense(int(s*out_dim), init='glorot_uniform'))
         model.add(Activation(hidden_act))
-    model.add(Dense(out_dim, init='normal'))
+    model.add(Dense(out_dim, init='glorot_uniform'))
     model.add(Activation(act))
     c = CodeCosts(L, ToricCode, Z, X)
     model.compile(loss=loss,
