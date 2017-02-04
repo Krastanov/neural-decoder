@@ -42,7 +42,8 @@ class CodeCosts:
         no_err    = 1 - F(self.logic_error_expanded(y_true, y_pred))
         return K.mean(no_err*triv_stab)
 
-def create_model(L, hidden_sizes=[4], hidden_act='tanh', act='sigmoid', loss='binary_crossentropy', Z=True, X=False):
+def create_model(L, hidden_sizes=[4], hidden_act='tanh', act='sigmoid', loss='binary_crossentropy',
+                 Z=True, X=False, learning_rate=0.002):
     in_dim = L**2 * (X+Z)
     out_dim = 2*L**2 * (X+Z)
     model = Sequential()
@@ -55,7 +56,7 @@ def create_model(L, hidden_sizes=[4], hidden_act='tanh', act='sigmoid', loss='bi
     model.add(Activation(act))
     c = CodeCosts(L, ToricCode, Z, X)
     model.compile(loss=loss,
-                  optimizer=Nadam(),
+                  optimizer=Nadam(lr=learning_rate),
                   metrics=[c.exact_reversal, c.triv_stab, c.no_error, c.triv_no_error]
                  )
     return model

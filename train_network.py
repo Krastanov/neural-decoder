@@ -24,6 +24,8 @@ parser.add_argument('--batch', type=int, default=512,
                     help='the batch size (default: %(default)s)')
 parser.add_argument('--epochs', type=int, default=20,
                     help='the number of epochs (default: %(default)s)')
+parser.add_argument('--learningrate', type=float, default=0.002,
+                    help='the learning rate (default: %(default)s)')
 parser.add_argument('--hact', type=str, default='tanh',
                     help='the activation for hidden layers (default: %(default)s)')
 parser.add_argument('--act', type=str, default='sigmoid',
@@ -65,7 +67,8 @@ model = create_model(L=args.dist,
                      hidden_act=args.hact,
                      act=args.act,
                      loss=args.loss,
-                     Z=args.Zstab, X=args.Xstab)
+                     Z=args.Zstab, X=args.Xstab,
+                     learning_rate=args.learningrate)
 if args.load:
     model.load_weights(args.load)
 if args.epochs:
