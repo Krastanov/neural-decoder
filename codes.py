@@ -8,6 +8,7 @@ if `ioff` is not called.'''
 import itertools
 
 import numpy as np
+import scipy.linalg
 import scipy.stats as stats
 import scipy.optimize as optimize
 
@@ -86,6 +87,24 @@ class ToricCode:
             _flatZflips2Xerr[0, (2*0+1)%(2*L)*L+(k  )%L] = 1
             _flatZflips2Xerr[1, (2*k  )%(2*L)*L+(0  )%L] = 1
         return _flatZflips2Xerr
+
+    def H(self, Z=True, X=False):
+        H = []
+        if Z:
+            H.append(self.flatXflips2Zstab)
+        if X:
+            H.append(self.flatZflips2Xstab)
+        H = scipy.linalg.block_diag(*H)
+        return H
+
+    def E(self, Z=True, X=False):
+        E = []
+        if Z:
+            E.append(self.flatXflips2Zerr)
+        if X:
+            E.append(self.flatZflips2Xerr)
+        E = scipy.linalg.block_diag(*E)
+        return E
 
     def Zstabilizer(self):
         '''Return all measurements of the Z stabilizer with ``true`` marking non-trivial.'''
