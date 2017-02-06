@@ -106,24 +106,34 @@ if args.eval:
     c = cz = cx = 0
     failed_counter = Counter()
     succeeded_counter = Counter()
-    size = len(y_test)
     giveup = args.giveup
-    for flips, stab in zip(tqdm.tqdm(y_test, desc='bad %.4f'%(failed_counter[giveup]/size)), x_test):
-        pred = model.predict(np.array([stab])).ravel() # TODO those seem like unnecessary shape changes
-        sample = pred>np.random.uniform(size=2*L**2)
+    if args.trainset:
+        stabflipgen = zip(x_test, y_test)
+        size = len(y_test)
+    else:
+        size = args.onthefly[1]
+        stabflipgen = data_generator(ToricCode, args.dist, args.prob, 1, args.Zstab, args.Xstab, size=size)
+    full_log = np.zeros((size, E.shape[0]+1), dtype=int)
+    for i, (stab, flips) in tqdm.tqdm(enumerate(stabflipgen), total=size):
+        stab.shape = 1, L**2*(args.Zstab+args.Xstab) # TODO this should be unnecessary
+        pred = model.predict(stab).ravel() # TODO those seem like unnecessary shape changes
+        sample = pred>np.random.uniform(size=2*L**2*(args.Zstab+args.Xstab))
         attempts = 1
         while np.any(stab!=H.dot(sample)%2) and attempts < giveup:
-            sample = pred>np.random.uniform(size=2*L**2)
+            sample = pred>np.random.uniform(size=2*L**2*(args.Zstab+args.Xstab))
             attempts += 1
-        errors = E.dot((sample+flips)%2)%2
+        errors = E.dot((sample+flips.ravel())%2)%2 # TODO this also seems like an unnecessary ravel
         if np.any(errors) or np.any(stab!=H.dot(sample)%2):
             c += 1
             failed_counter[attempts] += 1
             if both:
-                cz += np.any(errors[:len(errors)/2])
-                cx += np.any(errors[len(errors)/2:])
+                cz += np.any(errors[:len(errors)//2])
+                cx += np.any(errors[len(errors)//2:])
         else:
             succeeded_counter[attempts] += 1
+        full_log[i,:-1] = errors
+        full_log[i,-1] = attempts
     with open(args.out+'.eval', 'w') as f:
         f.write(str(((1-c/size),(1-cz/size),(1-cx/size),
                      succeeded_counter,failed_counter)))
+    np.savetxt(args.out+'.eval.log', full_log, fmt='%d')
