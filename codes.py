@@ -430,7 +430,7 @@ def find_threshold(Lsmall=3, Llarge=5, p=0.8, high=1, low=0.79, samples=1000, lo
 
     return ps, samples_small, samples_large
 
-def generate_training_data(l=3, p=0.9, train_size=2000000, test_size=100000):
+def generate_training_data(l=3, p=0.9, train_size=2000000, test_size=100000): # TODO duplicated code with data_generator in neural.py
     '''Generate errors and corresponding stabilizers at a given `p` for the toric code.
 
     The samples with no errors are skipped.
