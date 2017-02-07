@@ -42,7 +42,6 @@ parser.add_argument('--Xstab', action='store_true',
 args = parser.parse_args()
 print(args)
 
-from collections import Counter
 from neural import create_model, data_generator
 from codes import ToricCode
 import numpy as np
@@ -103,9 +102,12 @@ if args.eval:
     H = ToricCode(L).H(args.Zstab,args.Xstab)
     E = ToricCode(L).E(args.Zstab,args.Xstab)
     both = args.Zstab and args.Xstab
+    if both:
+        Hz = ToricCode(L).H(True, False)
+        Hx = ToricCode(L).H(False, True)
+    outlen = 2*L**2*(args.Zstab+args.Xstab)
+    inlen = L**2*(args.Zstab+args.Xstab)
     c = cz = cx = 0
-    failed_counter = Counter()
-    succeeded_counter = Counter()
     giveup = args.giveup
     if args.trainset:
         stabflipgen = zip(x_test, y_test)
@@ -113,27 +115,41 @@ if args.eval:
     else:
         size = args.onthefly[1]
         stabflipgen = data_generator(ToricCode, args.dist, args.prob, 1, args.Zstab, args.Xstab, size=size)
-    full_log = np.zeros((size, E.shape[0]+1), dtype=int)
+    full_log = np.zeros((size, E.shape[0]+args.Zstab+args.Xstab), dtype=int)
     for i, (stab, flips) in tqdm.tqdm(enumerate(stabflipgen), total=size):
-        stab.shape = 1, L**2*(args.Zstab+args.Xstab) # TODO this should be unnecessary
+        stab.shape = 1, inlen # TODO this should be unnecessary
         pred = model.predict(stab).ravel() # TODO those seem like unnecessary shape changes
-        sample = pred>np.random.uniform(size=2*L**2*(args.Zstab+args.Xstab))
-        attempts = 1
-        while np.any(stab!=H.dot(sample)%2) and attempts < giveup:
-            sample = pred>np.random.uniform(size=2*L**2*(args.Zstab+args.Xstab))
-            attempts += 1
+        sample = pred>np.random.uniform(size=outlen)
+        if both:
+            attemptsZ = 1
+            attemptsX = 1
+            while np.any(stab[0,:inlen//2]!=Hz.dot(sample[:outlen//2])%2) and attemptsZ < giveup: # TODO the zero index in stab should not be necessary
+                sample[:outlen//2] = pred[:outlen//2]>np.random.uniform(size=outlen//2)
+                attemptsZ += 1
+            while np.any(stab[0,inlen//2:]!=Hx.dot(sample[outlen//2:])%2) and attemptsX < giveup: # TODO the zero index in stab should not be necessary
+                sample[outlen//2:] = pred[outlen//2:]>np.random.uniform(size=outlen//2)
+                attemptsX += 1
+        else:
+            attempts = 1
+            while np.any(stab!=H.dot(sample)%2) and attempts < giveup:
+                sample = pred>np.random.uniform(size=outlen)
+                attempts += 1
         errors = E.dot((sample+flips.ravel())%2)%2 # TODO this also seems like an unnecessary ravel
         if np.any(errors) or np.any(stab!=H.dot(sample)%2):
             c += 1
-            failed_counter[attempts] += 1
             if both:
                 cz += np.any(errors[:len(errors)//2])
                 cx += np.any(errors[len(errors)//2:])
+        if both:
+            full_log[i,:-2] = errors
+            full_log[i,-2] = attemptsZ
+            full_log[i,-1] = attemptsX
         else:
-            succeeded_counter[attempts] += 1
-        full_log[i,:-1] = errors
-        full_log[i,-1] = attempts
+            full_log[i,:-1] = errors
+            full_log[i,-1] = attempts
     with open(args.out+'.eval', 'w') as f:
-        f.write(str(((1-c/size),(1-cz/size),(1-cx/size),
-                     succeeded_counter,failed_counter)))
+        if both:
+            f.write(str(((1-c/size),(1-cz/size),(1-cx/size))))
+        else:
+            f.write(str(((1-c/size),)))
     np.savetxt(args.out+'.eval.log', full_log, fmt='%d')
