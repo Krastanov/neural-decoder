@@ -68,6 +68,14 @@ model = create_model(L=args.dist,
                      loss=args.loss,
                      Z=args.Zstab, X=args.Xstab,
                      learning_rate=args.learningrate)
+L = args.dist
+code = ToricCode(L)
+out_dimZ = 2*L**2 * args.Zstab
+out_dimX = 2*L**2 * args.Xstab
+in_dim = L**2 * (args.Xstab+args.Zstab)
+H = code.H(args.Zstab,args.Xstab)
+
+
 if args.load:
     model.load_weights(args.load)
 if args.epochs:
@@ -88,18 +96,14 @@ if args.epochs:
                          validation_data=(x_test, y_test)
                         )
     else:
-        dat = data_generator(ToricCode, args.dist, args.prob, args.batch,
-                             args.Zstab, args.Xstab)
-        val = data_generator(ToricCode, args.dist, args.prob, args.batch,
-                             args.Zstab, args.Xstab)
+        dat = data_generator(H, out_dimZ, out_dimX, in_dim, args.prob, args.batch)
+        val = data_generator(H, out_dimZ, out_dimX, in_dim, args.prob, args.batch)
         hist = model.fit_generator(dat, args.onthefly[0], args.epochs,
                                    validation_data=val, nb_val_samples=args.onthefly[1])
     model.save_weights(args.out)
     with open(args.out+'.log', 'w') as f:
         f.write(str((hist.params, hist.history)))
 if args.eval:
-    L = args.dist
-    H = ToricCode(L).H(args.Zstab,args.Xstab)
     E = ToricCode(L).E(args.Zstab,args.Xstab)
     both = args.Zstab and args.Xstab
     if both:
@@ -114,7 +118,7 @@ if args.eval:
         size = len(y_test)
     else:
         size = args.onthefly[1]
-        stabflipgen = data_generator(ToricCode, args.dist, args.prob, 1, args.Zstab, args.Xstab, size=size)
+        stabflipgen = data_generator(H, out_dimZ, out_dimX, in_dim, args.prob, batch_size=1, size=size)
     full_log = np.zeros((size, E.shape[0]+args.Zstab+args.Xstab), dtype=int)
     for i, (stab, flips) in tqdm.tqdm(enumerate(stabflipgen), total=size):
         stab.shape = 1, inlen # TODO this should be unnecessary

@@ -61,41 +61,34 @@ def create_model(L, hidden_sizes=[4], hidden_act='tanh', act='sigmoid', loss='bi
                  )
     return model
 
-def data_generator(code, L, p, batch_size=512, Z=True, X=False, size=None):
-    H = []
-    code = code(L)
-    in_dim = L**2 * (X+Z)
-    out_dim = 2*L**2 * (X+Z)
-    H = code.H(Z,X)
+def makeflips(q, out_dimZ, out_dimX):
+    flips = np.zeros((out_dimZ+out_dimX,), dtype=np.dtype('b'))
+    rand = np.random.rand(out_dimZ or out_dimX) # if neither is zero they have to necessarily be the same (equal to the number of physical qubits)
+    both_flips  = (2*q<=rand) & (rand<3*q)
+    if out_dimZ: # non-trivial Z stabilizer is caused by flips in the X basis
+        x_flips =                rand<  q
+        flips[:out_dimZ] ^= x_flips
+        flips[:out_dimZ] ^= both_flips
+    if out_dimX: # non-trivial X stabilizer is caused by flips in the Z basis
+        z_flips =   (q<=rand) & (rand<2*q)
+        flips[out_dimZ:out_dimZ+out_dimX] ^= z_flips
+        flips[out_dimZ:out_dimZ+out_dimX] ^= both_flips
+    return flips
+
+def nonzeroflips(q, out_dimZ, out_dimX):
+    flips = makeflips(q, out_dimZ, out_dimX)
+    while not np.any(flips):
+        flips = makeflips(q, out_dimZ, out_dimX)
+    return flips
+
+def data_generator(H, out_dimZ, out_dimX, in_dim, p, batch_size=512, size=None):
     c = 0
     q = (1-p)/3
-    def makeflips():
-        flips = np.zeros((out_dim, ), dtype=np.dtype('b'))
-        rand = np.random.rand(2*L**2)
-        both_flips  = (2*q<=rand) & (rand<3*q)
-        if Z:
-            x_flips =                rand<  q
-            flips[:2*L**2] ^= x_flips
-            flips[:2*L**2] ^= both_flips
-        if X:
-            z_flips =   (q<=rand) & (rand<2*q)
-            off = 2*L**2 if Z else 0
-            flips[off:off+2*L**2] ^= z_flips
-            flips[off:off+2*L**2] ^= both_flips
-        return flips
-    def nonzerostabflips():
-        flips = makeflips()
-        while not np.any(flips):
-            flips = makeflips()
-        stab = H.dot(flips) % 2
-        return stab, flips
     while True:
-        flips = np.zeros((batch_size, out_dim), dtype=int) # TODO dtype? byte?
-        stabs = np.zeros((batch_size, in_dim ), dtype=int)
+        flips = np.empty((batch_size, out_dimZ+out_dimX), dtype=int) # TODO dtype? byte?
         for i in range(batch_size):
-            stabs[i,:], flips[i,:] = nonzerostabflips()
-        yield (stabs, flips)
+            flips[i,:] = nonzeroflips(q, out_dimZ, out_dimX)
+        yield (np.dot(flips,H.T)%2, flips)
         c += 1
         if size and c==size:
             raise StopIteration
-
