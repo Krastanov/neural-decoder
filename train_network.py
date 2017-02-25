@@ -127,16 +127,25 @@ if args.eval:
         if both:
             attemptsZ = 1
             attemptsX = 1
-            while np.any(stab[0,:inlen//2]!=Hz.dot(sample[:outlen//2])%2) and attemptsZ < giveup: # TODO the zero index in stab should not be necessary
-                sample[:outlen//2] = pred[:outlen//2]>np.random.uniform(size=outlen//2)
+            mismatchZ = stab[0,:inlen//2]!=Hz.dot(sample[:outlen//2])%2
+            while np.any(mismatchZ) and attemptsZ < giveup: # TODO the zero index in stab should not be necessary
+                propagatedZ = np.any(Hz[mismatchZ,:], axis=0)
+                sample[:outlen//2][propagatedZ] = pred[:outlen//2][propagatedZ]>np.random.uniform(size=np.sum(propagatedZ))
+                mismatchZ = stab[0,:inlen//2]!=Hz.dot(sample[:outlen//2])%2
                 attemptsZ += 1
-            while np.any(stab[0,inlen//2:]!=Hx.dot(sample[outlen//2:])%2) and attemptsX < giveup: # TODO the zero index in stab should not be necessary
-                sample[outlen//2:] = pred[outlen//2:]>np.random.uniform(size=outlen//2)
+            mismatchX = stab[0,inlen//2:]!=Hx.dot(sample[outlen//2:])%2
+            while np.any(mismatchX) and attemptsX < giveup: # TODO the zero index in stab should not be necessary
+                propagatedX = np.any(Hx[mismatchX,:], axis=0)
+                sample[outlen//2:][propagatedX] = pred[outlen//2:][propagatedX]>np.random.uniform(size=np.sum(propagatedX))
+                mismatchX = stab[0,inlen//2:]!=Hx.dot(sample[outlen//2:])%2
                 attemptsX += 1
         else:
             attempts = 1
-            while np.any(stab!=H.dot(sample)%2) and attempts < giveup:
-                sample = pred>np.random.uniform(size=outlen)
+            mismatch = stab.ravel()!=H.dot(sample)%2
+            while np.any(mismatch) and attempts < giveup:
+                propagated = np.any(H[mismatch,:], axis=0)
+                sample[propagated] = pred[propagated]>np.random.uniform(size=np.sum(propagated))
+                mismatch = stab.ravel()!=H.dot(sample)%2
                 attempts += 1
         errors = E.dot((sample+flips.ravel())%2)%2 # TODO this also seems like an unnecessary ravel
         if np.any(errors) or np.any(stab!=H.dot(sample)%2):
