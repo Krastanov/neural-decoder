@@ -4,9 +4,6 @@ import keras
 import keras.backend as K
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation
-from keras.layers.normalization import BatchNormalization
-import tensorflow as tf
-tf.python.control_flow_ops = tf # TODO XXX workaround for tf 10.0
 from keras.regularizers import l1, activity_l1
 from keras.optimizers import Nadam
 from keras.objectives import binary_crossentropy
@@ -46,26 +43,22 @@ class CodeCosts:
         return K.mean(no_err*triv_stab)
 
 def create_model(L, hidden_sizes=[4], hidden_act='tanh', act='sigmoid', loss='binary_crossentropy',
-                 Z=True, X=False, learning_rate=0.002, batchnorm=0.6):
+                 Z=True, X=False, learning_rate=0.002):
     in_dim = L**2 * (X+Z)
     out_dim = 2*L**2 * (X+Z)
     model = Sequential()
     model.add(Dense(int(hidden_sizes[0]*out_dim), input_dim=in_dim, init='glorot_uniform'))
-    #model.add(BatchNormalization(momentum=batchnorm))
     model.add(Activation(hidden_act))
     for s in hidden_sizes[1:]:
         model.add(Dense(int(s*out_dim), init='glorot_uniform'))
-        #model.add(BatchNormalization(momentum=batchnorm))
         model.add(Activation(hidden_act))
     model.add(Dense(out_dim, init='glorot_uniform'))
-    model.add(BatchNormalization(momentum=batchnorm))
     model.add(Activation(act))
     c = CodeCosts(L, ToricCode, Z, X)
     model.compile(loss=loss,
                   optimizer=Nadam(lr=learning_rate),
                   metrics=[c.exact_reversal, c.triv_stab, c.no_error, c.triv_no_error]
                  )
-    keras.backend.get_session().run(tf.global_variables_initializer()) # TODO XXX workaround for bug in keras
     return model
 
 def makeflips(q, out_dimZ, out_dimX):
