@@ -34,6 +34,12 @@ parser.add_argument('--loss', type=str, default='binary_crossentropy',
                     help='the loss to be optimized (default: %(default)s)')
 parser.add_argument('--layers', type=float, default=[4, 4, 4], nargs='+',
                     help='the list of sizes of the hidden layers (as a factor of the output layer) (default: %(default)s)')
+parser.add_argument('--normcentererr', action='store_true',
+                    help='if present, zero-center and normalize the error training and evaluation data (should be done in advance for pregenerated data)')
+parser.add_argument('--normcenterstab', action='store_true',
+                    help='if present, zero-center and normalize the stabilizer training and evaluation data (should be done in advance for pregenerated data)')
+parser.add_argument('--batchnorm', type=float, default=0,
+                    help='if nonzero, batchnormalize each layer with the given momentum (default: %(default)s)')
 parser.add_argument('--Zstab', action='store_true',
                     help='if present, include the Z stabilizer in the neural network')
 parser.add_argument('--Xstab', action='store_true',
@@ -42,7 +48,7 @@ parser.add_argument('--Xstab', action='store_true',
 args = parser.parse_args()
 print(args)
 
-from neural import create_model, data_generator
+from neural import create_model, data_generator, do_normcenterstab, undo_normcentererr
 from codes import ToricCode
 import numpy as np
 import tqdm
@@ -67,7 +73,10 @@ model = create_model(L=args.dist,
                      act=args.act,
                      loss=args.loss,
                      Z=args.Zstab, X=args.Xstab,
-                     learning_rate=args.learningrate)
+                     learning_rate=args.learningrate,
+                     normcentererr_p=args.prob if args.normcentererr else None,
+                     batchnorm=args.batchnorm
+                    )
 L = args.dist
 code = ToricCode(L)
 out_dimZ = 2*L**2 * args.Zstab
@@ -96,8 +105,10 @@ if args.epochs:
                          validation_data=(x_test, y_test)
                         )
     else:
-        dat = data_generator(H, out_dimZ, out_dimX, in_dim, args.prob, args.batch)
-        val = data_generator(H, out_dimZ, out_dimX, in_dim, args.prob, args.batch)
+        dat = data_generator(H, out_dimZ, out_dimX, in_dim, args.prob, args.batch,
+                             normcenterstab=args.normcenterstab, normcentererr=args.normcentererr)
+        val = data_generator(H, out_dimZ, out_dimX, in_dim, args.prob, args.batch,
+                             normcenterstab=args.normcenterstab, normcentererr=args.normcentererr)
         hist = model.fit_generator(dat, args.onthefly[0], args.epochs,
                                    validation_data=val, nb_val_samples=args.onthefly[1])
     model.save_weights(args.out)
@@ -122,26 +133,30 @@ if args.eval:
     full_log = np.zeros((size, E.shape[0]+args.Zstab+args.Xstab), dtype=int)
     for i, (stab, flips) in tqdm.tqdm(enumerate(stabflipgen), total=size):
         stab.shape = 1, inlen # TODO this should be unnecessary
+        if args.normcenterstab:
+            stab = do_normcenterstab(stab, args.prob)
         pred = model.predict(stab).ravel() # TODO those seem like unnecessary shape changes
+        if args.normcentererr:
+            pred = undo_normcentererr(pred, args.prob)
         sample = pred>np.random.uniform(size=outlen)
         if both:
             attemptsZ = 1
             attemptsX = 1
             mismatchZ = stab[0,:inlen//2]!=Hz.dot(sample[:outlen//2])%2
-            while np.any(mismatchZ) and attemptsZ < giveup: # TODO the zero index in stab should not be necessary
+            while np.any(mismatchZ) and attemptsZ < giveup:
                 propagatedZ = np.any(Hz[mismatchZ,:], axis=0)
                 sample[:outlen//2][propagatedZ] = pred[:outlen//2][propagatedZ]>np.random.uniform(size=np.sum(propagatedZ))
                 mismatchZ = stab[0,:inlen//2]!=Hz.dot(sample[:outlen//2])%2
                 attemptsZ += 1
             mismatchX = stab[0,inlen//2:]!=Hx.dot(sample[outlen//2:])%2
-            while np.any(mismatchX) and attemptsX < giveup: # TODO the zero index in stab should not be necessary
+            while np.any(mismatchX) and attemptsX < giveup:
                 propagatedX = np.any(Hx[mismatchX,:], axis=0)
                 sample[outlen//2:][propagatedX] = pred[outlen//2:][propagatedX]>np.random.uniform(size=np.sum(propagatedX))
                 mismatchX = stab[0,inlen//2:]!=Hx.dot(sample[outlen//2:])%2
                 attemptsX += 1
         else:
             attempts = 1
-            mismatch = stab.ravel()!=H.dot(sample)%2
+            mismatch = stab.ravel()!=H.dot(sample)%2 # TODO this also seems like an unnecessary ravel
             while np.any(mismatch) and attempts < giveup:
                 propagated = np.any(H[mismatch,:], axis=0)
                 sample[propagated] = pred[propagated]>np.random.uniform(size=np.sum(propagated))
