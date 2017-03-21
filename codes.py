@@ -136,7 +136,7 @@ class ToricCode:
         y = np.concatenate([y/2., y/2., y/2.-self.L])
         s.plot(x, y,'o', ms=50/self.L, label=label)
 
-    def plot(self, legend=True):
+    def plot(self, legend=True, stabs=True):
         '''Plot the state of the system (including stabilizers).'''
         f = plt.figure(figsize=(5,5))
         s = f.add_subplot(1,1,1)
@@ -146,13 +146,14 @@ class ToricCode:
         self._plot_flips(s, self.Zflips.nonzero(), label='Z')
         self._plot_flips(s, (self.Xflips & self.Zflips).nonzero(), label='Y')
 
-        y, x = self.Zstabilizer().nonzero()
-        x = np.concatenate([x+0.5, x+0.5-self.L, x+0.5, x+0.5-self.L])
-        y = np.concatenate([y+0.5, y+0.5, y+0.5-self.L, y+0.5-self.L])
-        s.plot(x,y,'s', mew=0, ms=190/self.L, label='plaq')
+        if stabs:
+            y, x = self.Zstabilizer().nonzero()
+            x = np.concatenate([x+0.5, x+0.5-self.L, x+0.5, x+0.5-self.L])
+            y = np.concatenate([y+0.5, y+0.5, y+0.5-self.L, y+0.5-self.L])
+            s.plot(x,y,'s', mew=0, ms=190/self.L, label='plaq')
 
-        y, x = self.Xstabilizer().nonzero()
-        s.plot(x, y, '+', mew=100/self.L, ms=200/self.L, label='star')
+            y, x = self.Xstabilizer().nonzero()
+            s.plot(x, y, '+', mew=100/self.L, ms=200/self.L, label='star')
 
         s.set_xticks(range(0,self.L))
         s.set_yticks(range(0,self.L))
