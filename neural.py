@@ -119,7 +119,7 @@ def data_generator(H, out_dimZ, out_dimX, in_dim, p, batch_size=512, size=None,
         c += 1
         if size and c==size:
             raise StopIteration
-            
+
 def do_normcenterstab(stabs, p):
     avg = (1-p)*2/3
     avg_stab = 4*avg*(1-avg)**3 + 4*avg**3*(1-avg)
@@ -141,3 +141,22 @@ def undo_normcentererr(flips, p):
     avg = (1-p)*2/3
     var = avg-avg**2
     return flips*var**0.5 + avg
+
+def smart_sample(H, stab, pred, sample, giveup):
+    '''Sample `pred` until `H@sample==stab`.
+
+    `sample` is modified in place. `giveup` attempts are done at most.
+    Returns the number of attempts.'''
+    npany = np.any
+    nprandomuniform = np.random.uniform
+    npsum = np.sum
+    npdot = np.dot
+    npnot_equal = np.not_equal
+    attempts = 1
+    mismatch = stab!=npdot(H,sample)%2
+    while npany(mismatch) and attempts < giveup:
+        propagated = npany(H[mismatch,:], axis=0)
+        sample[propagated] = pred[propagated]>nprandomuniform(size=npsum(propagated))
+        mismatch = stab!=npdot(H,sample)%2
+        attempts += 1
+    return attempts

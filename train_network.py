@@ -48,7 +48,7 @@ parser.add_argument('--Xstab', action='store_true',
 args = parser.parse_args()
 print(args)
 
-from neural import create_model, data_generator, do_normcenterstab, undo_normcentererr
+from neural import create_model, data_generator, do_normcenterstab, undo_normcentererr, smart_sample
 from codes import ToricCode
 import numpy as np
 import tqdm
@@ -123,7 +123,6 @@ if args.eval:
     outlen = 2*L**2*(args.Zstab+args.Xstab)
     inlen = L**2*(args.Zstab+args.Xstab)
     c = cz = cx = 0
-    giveup = args.giveup
     if args.trainset:
         stabflipgen = zip(x_test, y_test)
         size = len(y_test)
@@ -132,37 +131,22 @@ if args.eval:
         stabflipgen = data_generator(H, out_dimZ, out_dimX, in_dim, args.prob, batch_size=1, size=size)
     full_log = np.zeros((size, E.shape[0]+args.Zstab+args.Xstab), dtype=int)
     for i, (stab, flips) in tqdm.tqdm(enumerate(stabflipgen), total=size):
-        stab.shape = 1, inlen # TODO this should be unnecessary
         if args.normcenterstab:
-            stab = do_normcenterstab(stab, args.prob)
-        pred = model.predict(stab).ravel() # TODO those seem like unnecessary shape changes
+            stab_normed = do_normcenterstab(stab, args.prob)
+            pred = model.predict(stab_normed).ravel()
+        else:
+            pred = model.predict(stab).ravel()
         if args.normcentererr:
             pred = undo_normcentererr(pred, args.prob)
+        stab = stab.ravel()
+        flips = flips.ravel()
         sample = pred>np.random.uniform(size=outlen)
         if both:
-            attemptsZ = 1
-            attemptsX = 1
-            mismatchZ = stab[0,:inlen//2]!=Hz.dot(sample[:outlen//2])%2
-            while np.any(mismatchZ) and attemptsZ < giveup:
-                propagatedZ = np.any(Hz[mismatchZ,:], axis=0)
-                sample[:outlen//2][propagatedZ] = pred[:outlen//2][propagatedZ]>np.random.uniform(size=np.sum(propagatedZ))
-                mismatchZ = stab[0,:inlen//2]!=Hz.dot(sample[:outlen//2])%2
-                attemptsZ += 1
-            mismatchX = stab[0,inlen//2:]!=Hx.dot(sample[outlen//2:])%2
-            while np.any(mismatchX) and attemptsX < giveup:
-                propagatedX = np.any(Hx[mismatchX,:], axis=0)
-                sample[outlen//2:][propagatedX] = pred[outlen//2:][propagatedX]>np.random.uniform(size=np.sum(propagatedX))
-                mismatchX = stab[0,inlen//2:]!=Hx.dot(sample[outlen//2:])%2
-                attemptsX += 1
+            attemptsZ = smart_sample(Hz, stab[:inlen//2], pred[:outlen//2], sample[:outlen//2], args.giveup)
+            attemptsX = smart_sample(Hx, stab[inlen//2:], pred[outlen//2:], sample[outlen//2:], args.giveup)
         else:
-            attempts = 1
-            mismatch = stab.ravel()!=H.dot(sample)%2 # TODO this also seems like an unnecessary ravel
-            while np.any(mismatch) and attempts < giveup:
-                propagated = np.any(H[mismatch,:], axis=0)
-                sample[propagated] = pred[propagated]>np.random.uniform(size=np.sum(propagated))
-                mismatch = stab.ravel()!=H.dot(sample)%2
-                attempts += 1
-        errors = E.dot((sample+flips.ravel())%2)%2 # TODO this also seems like an unnecessary ravel
+            attempts = smart_sample(H, stab, pred, sample, args.giveup)
+        errors = E.dot((sample+flips)%2)%2
         if np.any(errors) or np.any(stab!=H.dot(sample)%2):
             c += 1
             if both:
