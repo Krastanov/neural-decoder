@@ -25,10 +25,10 @@ args = parser.parse_args()
 from codes import generate_training_data
 import numpy as np
 
-res = generate_training_data(l=args.dist,
-                             p=args.prob,
-                             train_size=args.ntrain,
-                             test_size=args.nval,
-                            )
+res, _ = generate_training_data(l=args.dist,
+                                p=args.prob,
+                                train_size=args.ntrain,
+                                test_size=args.nval,
+                               )
 
 np.savez_compressed(args.out, *res)

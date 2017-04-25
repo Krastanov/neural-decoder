@@ -151,7 +151,6 @@ def smart_sample(H, stab, pred, sample, giveup):
     nprandomuniform = np.random.uniform
     npsum = np.sum
     npdot = np.dot
-    npnot_equal = np.not_equal
     attempts = 1
     mismatch = stab!=npdot(H,sample)%2
     while npany(mismatch) and attempts < giveup:

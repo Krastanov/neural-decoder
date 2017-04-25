@@ -477,5 +477,6 @@ def generate_training_data(l=3, p=0.9, train_size=2000000, test_size=100000): # 
     zstab_decoded_fraction = 1 - zstab_errors/test_size
     print('decoded_fraction, zstab_decoded_fraction, xstab_decoded_fraction =')
     print(decoded_fraction, zstab_decoded_fraction, xstab_decoded_fraction)
-    return (Zstab_x_train, Zstab_y_train, Xstab_x_train, Xstab_y_train,
-            Zstab_x_test,  Zstab_y_test,  Xstab_x_test,  Xstab_y_test)
+    return ((Zstab_x_train, Zstab_y_train, Xstab_x_train, Xstab_y_train,
+             Zstab_x_test,  Zstab_y_test,  Xstab_x_test,  Xstab_y_test),
+            (decoded_fraction, zstab_decoded_fraction, xstab_decoded_fraction))
