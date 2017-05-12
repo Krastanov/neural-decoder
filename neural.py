@@ -4,19 +4,18 @@ import keras
 import keras.backend as K
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation
-from keras.regularizers import l1, activity_l1
 from keras.optimizers import Nadam
 from keras.objectives import binary_crossentropy
 from keras.layers.normalization import BatchNormalization
 import tensorflow as tf
-tf.python.control_flow_ops = tf # TODO XXX workaround for tf 10.0
-
 
 F = lambda _: K.cast(_, 'float32') # TODO XXX there must be a better way to calculate mean than this cast-first approach
 
 
 class CodeCosts:
     def __init__(self, L, code, Z, X, normcentererr_p=None):
+        if normcentererr_p:
+            raise NotImplementedError('Throughout the entire codebase, the normalization and centering of the error, might be wrong... Or to be more precise, it might just be plain stupid, given that we are using binary crossentropy as loss.')
         self.L = L
         code = code(L)
         H = code.H(Z,X)
@@ -35,13 +34,13 @@ class CodeCosts:
         if self.p:
             y_pred = undo_normcentererr(y_pred, self.p)
             y_true = undo_normcentererr(y_true, self.p)
-        return K.any(K.batch_dot(self.H,(K.round(y_pred)+y_true)%2, axes=[1,1])%2, axis=0)
+        return K.any(K.dot(self.H, K.transpose((K.round(y_pred)+y_true)%2))%2, axis=0)
     def logic_error_expanded(self, y_true, y_pred):
         "Whether there is a logical error after correction."
         if self.p:
             y_pred = undo_normcentererr(y_pred, self.p)
             y_true = undo_normcentererr(y_true, self.p)
-        return K.any(K.batch_dot(self.E,(K.round(y_pred)+y_true)%2, axes=[1,1])%2, axis=0)
+        return K.any(K.dot(self.E, K.transpose((K.round(y_pred)+y_true)%2))%2, axis=0)
     def triv_stab(self, y_true, y_pred):
         "Fraction trivial stabilizer after corrections."
         return 1-K.mean(F(self.non_triv_stab_expanded(y_true, y_pred)))
@@ -54,6 +53,22 @@ class CodeCosts:
         triv_stab = 1 - F(self.non_triv_stab_expanded(y_true, y_pred))
         no_err    = 1 - F(self.logic_error_expanded(y_true, y_pred))
         return K.mean(no_err*triv_stab)
+    def e_binary_crossentropy(self, y_true, y_pred):
+        if self.p:
+            y_pred = undo_normcentererr(y_pred, self.p)
+            y_true = undo_normcentererr(y_true, self.p)
+        return K.mean(K.binary_crossentropy(y_pred, y_true), axis=-1)
+    def s_binary_crossentropy(self, y_true, y_pred):
+        if self.p:
+            y_pred = undo_normcentererr(y_pred, self.p)
+            y_true = undo_normcentererr(y_true, self.p)
+        s_true = K.dot(y_true, K.transpose(self.H))%2
+        twopminusone = 2*y_pred-1
+        s_pred = ( 1 - tf.real(K.exp(K.dot(K.log(tf.cast(twopminusone, tf.complex64)), tf.cast(K.transpose(self.H), tf.complex64)))) ) / 2
+        return K.mean(K.binary_crossentropy(s_pred, s_true), axis=-1)
+    def se_binary_crossentropy(self, y_true, y_pred):
+        return 2./3.*self.e_binary_crossentropy(y_true, y_pred) + 1./3.*self.s_binary_crossentropy(y_true, y_pred)
+
 
 def create_model(L, hidden_sizes=[4], hidden_act='tanh', act='sigmoid', loss='binary_crossentropy',
                  Z=True, X=False, learning_rate=0.002,
@@ -61,25 +76,27 @@ def create_model(L, hidden_sizes=[4], hidden_act='tanh', act='sigmoid', loss='bi
     in_dim = L**2 * (X+Z)
     out_dim = 2*L**2 * (X+Z)
     model = Sequential()
-    model.add(Dense(int(hidden_sizes[0]*out_dim), input_dim=in_dim, init='glorot_uniform'))
+    model.add(Dense(int(hidden_sizes[0]*out_dim), input_dim=in_dim, kernel_initializer='glorot_uniform'))
     if batchnorm:
         model.add(BatchNormalization(momentum=batchnorm))
     model.add(Activation(hidden_act))
     for s in hidden_sizes[1:]:
-        model.add(Dense(int(s*out_dim), init='glorot_uniform'))
+        model.add(Dense(int(s*out_dim), kernel_initializer='glorot_uniform'))
         if batchnorm:
             model.add(BatchNormalization(momentum=batchnorm))
         model.add(Activation(hidden_act))
-    model.add(Dense(out_dim, init='glorot_uniform'))
+    model.add(Dense(out_dim, kernel_initializer='glorot_uniform'))
     if batchnorm:
         model.add(BatchNormalization(momentum=batchnorm))
     model.add(Activation(act))
     c = CodeCosts(L, ToricCode, Z, X, normcentererr_p)
-    model.compile(loss=loss,
+    losses = {'e_binary_crossentropy':c.e_binary_crossentropy,
+              's_binary_crossentropy':c.s_binary_crossentropy,
+              'se_binary_crossentropy':c.se_binary_crossentropy}
+    model.compile(loss=losses.get(loss,loss),
                   optimizer=Nadam(lr=learning_rate),
-                  metrics=[c.exact_reversal, c.triv_stab, c.no_error, c.triv_no_error]
+                  metrics=[c.triv_no_error, c.e_binary_crossentropy, c.s_binary_crossentropy]
                  )
-    keras.backend.get_session().run(tf.global_variables_initializer()) # TODO XXX workaround for bug in keras
     return model
 
 def makeflips(q, out_dimZ, out_dimX):
