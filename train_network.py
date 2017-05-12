@@ -89,6 +89,7 @@ if args.load:
     model.load_weights(args.load)
 if args.epochs:
     if args.trainset:
+        raise NotImplementedError("This is still using the OLD keras API. Update it!")
         x_train = []
         y_train = []
         if args.Zstab:
@@ -109,8 +110,8 @@ if args.epochs:
                              normcenterstab=args.normcenterstab, normcentererr=args.normcentererr)
         val = data_generator(H, out_dimZ, out_dimX, in_dim, args.prob, args.batch,
                              normcenterstab=args.normcenterstab, normcentererr=args.normcentererr)
-        hist = model.fit_generator(dat, args.onthefly[0], args.epochs,
-                                   validation_data=val, nb_val_samples=args.onthefly[1])
+        hist = model.fit_generator(dat, args.onthefly[0]//args.batch, args.epochs,
+                                   validation_data=val, validation_steps=args.onthefly[1]//args.batch)
     model.save_weights(args.out)
     with open(args.out+'.log', 'w') as f:
         f.write(str((hist.params, hist.history)))
