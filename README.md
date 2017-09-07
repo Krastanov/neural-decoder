@@ -1,5 +1,6 @@
-# neural-decoder
-Neural Network Decoders for Quantum Error Correcting Codes
+# Neural Network Decoders for Quantum Error Correcting Codes
+
+See: https://www.nature.com/articles/s41598-017-11266-1
 
 Make your own decoder with:
 
